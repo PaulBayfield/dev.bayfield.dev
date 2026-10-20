@@ -1,0 +1,31 @@
+{
+  "name": "devtime-server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "DevTime API, WakaTime-compatible heartbeat endpoint and static host for the web build",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env src/index.ts",
+    "dev": "node --watch --env-file-if-exists=.env src/index.ts",
+    "check": "tsc --noEmit",
+    "migrate:wakapi": "node --env-file-if-exists=.env src/migrate-wakapi.ts",
+    "user": "node --env-file-if-exists=.env src/cli.ts",
+    "db:dev": "node scripts/dev-db.ts",
+    "seed": "node --env-file-if-exists=.env scripts/seed.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.5",
+    "hono": "^4.13.13",
+    "nodemailer": "^10.1.7",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/nodemailer": "^8.0.2",
+    "embedded-postgres": "^18.4.0-beta.17",
+    "typescript": "~7.0.2"
+  }
+}

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4fc49b"/>
+      <stop offset="1" stop-color="#2a9670"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="228" fill="url(#bg)"/>
+  <rect x="176" y="232" width="672" height="560" rx="84" fill="#ffffff"/>
+  <path d="M176 316a84 84 0 0 1 84-84h504a84 84 0 0 1 84 84v54H176z" fill="#d9f3e8"/>
+  <circle cx="262" cy="301" r="21" fill="#2f9e74" opacity=".45"/>
+  <circle cx="328" cy="301" r="21" fill="#2f9e74" opacity=".45"/>
+  <circle cx="394" cy="301" r="21" fill="#2f9e74" opacity=".45"/>
+  <path d="M280 462l92 72-92 72" fill="none" stroke="#2f9e74" stroke-width="54" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="436" y="456" width="316" height="54" rx="27" fill="#2f9e74"/>
+  <rect x="436" y="558" width="216" height="54" rx="27" fill="#2f9e74" opacity=".4"/>
+  <rect x="280" y="672" width="372" height="54" rx="27" fill="#2f9e74" opacity=".4"/>
+</svg>

@@ -1,0 +1,32 @@
+services:
+  devtime:
+    image: ghcr.io/paulbayfield/dev.bayfield.dev:latest
+    build: .
+    env_file: server/.env
+    environment:
+      DATABASE_URL: postgres://devtime:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@devtime-db:5432/devtime
+      DATABASE_POOL_MAX: "10"
+    ports:
+      - "8790:8790"
+    depends_on:
+      devtime-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  devtime-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: devtime
+      POSTGRES_USER: devtime
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - devtime-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devtime -d devtime"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  devtime-db:
