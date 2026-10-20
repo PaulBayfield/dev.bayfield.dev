@@ -163,7 +163,7 @@ api.patch("/profile", async (c) => {
       activity: "shareActivity",
     };
     for (const [k, col] of Object.entries(map)) if (typeof s[k] === "boolean") patch[col] = s[k];
-    if (s.days !== undefined) patch.shareDays = [7, 30, 90, 365].includes(Number(s.days)) ? Number(s.days) : 30;
+    if (s.days !== undefined) patch.shareDays = [0, 7, 30, 90, 365].includes(Number(s.days)) ? Number(s.days) : 30; // 0: all time
     if (s.name !== undefined) patch.publicName = str(s.name, 100);
     if (s.handle !== undefined) {
       const handle = str(s.handle, 63);

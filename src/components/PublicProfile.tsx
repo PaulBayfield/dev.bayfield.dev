@@ -44,7 +44,7 @@ export function PublicProfile({ user }: { user: string }) {
               <Avatar name={data.name} size={48} />
               <div>
                 <h1 style={{ fontSize: 22 }}>{t("publicTitle", { name: data.name })}</h1>
-                <p className="muted small">{t("publicRange", { n: data.days })}</p>
+                <p className="muted small">{data.days ? t("publicRange", { n: data.days }) : t("allTime")}</p>
               </div>
             </header>
             <section className="overview">
@@ -54,7 +54,7 @@ export function PublicProfile({ user }: { user: string }) {
               </div>
               <div className="stat">
                 <span className="stat-label">{t("dailyAverage")}</span>
-                <span className="stat-value">{f.duration(data.total / data.days)}</span>
+                <span className="stat-value">{f.duration(data.total / Math.max(1, data.spanDays))}</span>
               </div>
             </section>
             {chart && (

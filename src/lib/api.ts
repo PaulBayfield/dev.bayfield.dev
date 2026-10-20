@@ -148,9 +148,12 @@ export interface AdminUser {
 export interface PublicProfile {
   id: string;
   name: string;
+  /** The share window in days; 0 = all time. */
   days: number;
   from: string;
   to: string;
+  /** Days actually covered (for all time: since the first day with data). */
+  spanDays: number;
   total: number;
   daily: { date: string; total: number }[] | null;
   breakdowns: Partial<Record<Dimension, Item[]>>;

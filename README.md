@@ -237,7 +237,7 @@ Off by default. In **Settings → Sharing**:
 
 - **Public identity**: a public username for your links and a public name to show. Your single sign-on username and real name never appear publicly, and once you pick a public username your account name stops working in public URLs.
 - **Where**: the **public page** (`/u/<public username>`) and the **public API and badges** are switched on separately, so you can share the API without a page, or the reverse.
-- **What**: a window (7–365 days) and what to show (languages, editors, project names, OS, machines, activity calendar).
+- **What**: a window (7–365 days, or all time) and what to show (languages, editors, project names, OS, machines, activity calendar).
 
 Badges and the languages card come with the public API:
 
@@ -247,7 +247,7 @@ Badges and the languages card come with the public API:
 ![languages](https://dev.bayfield.dev/api/card/<username>.svg?theme=dark)
 ```
 
-Badges take `range` (`last_7_days`, `last_30_days`, …, never further back than the shared window), `label` and `color`.
+Badges take `range` (`last_7_days`, `last_30_days`, `all_time`, …, never further back than the shared window; by default the whole window), `label` and `color`. With the window on **All time**, the plain badge shows your total coding time.
 
 ### WakaTime-Compatible API
 

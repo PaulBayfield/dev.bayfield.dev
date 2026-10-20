@@ -11,8 +11,8 @@ import { cors } from "hono/cors";
 import { sql, type Dimension } from "./db.ts";
 import { HttpError, bad, isDate, rateLimit } from "./http.ts";
 import { apiKeyOf, digital, items } from "./ingest.ts";
-import { SHARED, publicUser } from "./public.ts";
-import { addDays, localDate, rangeBounds, summary } from "./stats.ts";
+import { SHARED, publicUser, windowStart } from "./public.ts";
+import { addDays, rangeBounds, summary } from "./stats.ts";
 import { getUser, publicHandle, publicName, type User } from "./users.ts";
 
 interface Viewer {
@@ -55,8 +55,8 @@ function fields(v: Viewer): [Dimension, string][] {
 /** Public viewers never see further back than the share window. */
 function clamp(v: Viewer, from: string, to: string) {
   if (v.full) return { from, to };
-  const allowedFrom = addDays(localDate(v.user.timezone), -(v.user.shareDays - 1));
-  return { from: from < allowedFrom ? allowedFrom : from, to };
+  const allowedFrom = windowStart(v.user);
+  return { from: allowedFrom && from < allowedFrom ? allowedFrom : from, to };
 }
 
 const total = (seconds: number) => ({ total_seconds: seconds, decimal: (seconds / 3600).toFixed(2), ...digital(seconds) });

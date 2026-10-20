@@ -52,7 +52,7 @@ const val = <T>(row: Record<string, unknown>, key: string, fallback: T): T => (r
 const text = (row: Record<string, unknown>, key: string) => (typeof row[key] === "string" ? (row[key] as string) : "");
 
 function shareDays(maxDays: number): number {
-  if (maxDays < 0) return 365;
+  if (maxDays < 0) return 0; // wakapi: no limit → all time
   return [7, 30, 90, 365].find((d) => d >= maxDays) ?? 365;
 }
 

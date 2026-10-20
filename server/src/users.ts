@@ -17,6 +17,7 @@ export interface User {
   publicName: string;
   publicPage: boolean;
   publicApi: boolean;
+  /** How far back the public sees; 0 = all time. */
   shareDays: number;
   shareProjects: boolean;
   shareLanguages: boolean;

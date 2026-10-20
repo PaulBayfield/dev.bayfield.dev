@@ -25,12 +25,17 @@ export async function publicUser(handle: string, surface: "page" | "api"): Promi
   return u;
 }
 
-/** Shared ranges never reach further back than the user allows. */
+/** The first day the public may see, or null when the window is "all time" (share_days = 0). */
+export function windowStart(user: User): string | null {
+  return user.shareDays > 0 ? addDays(localDate(user.timezone), -(user.shareDays - 1)) : null;
+}
+
+/** Shared ranges never reach further back than the user allows. With no range: the whole window. */
 export function sharedRange(user: User, range: string | undefined) {
-  const today = localDate(user.timezone);
-  const allowedFrom = addDays(today, -(user.shareDays - 1));
-  const b = rangeBounds(range ?? `last_${user.shareDays === 365 ? "12_months" : `${user.shareDays}_days`}`, user) ?? rangeBounds("last_7_days", user)!;
-  return { from: b.from < allowedFrom ? allowedFrom : b.from, to: b.to };
+  const allowedFrom = windowStart(user);
+  const fallback = user.shareDays === 0 ? "all_time" : user.shareDays === 365 ? "last_12_months" : `last_${user.shareDays}_days`;
+  const b = rangeBounds(range ?? fallback, user) ?? rangeBounds("last_7_days", user)!;
+  return { from: allowedFrom && b.from < allowedFrom ? allowedFrom : b.from, to: b.to };
 }
 
 function sharedFilters(user: User, q: Record<string, string>): Filters {
@@ -56,16 +61,22 @@ publicRoutes.get("/public/users/:id", async (c) => {
     if (user[flag]) breakdowns[d] = s.breakdowns[d].slice(0, 20);
   }
   const today = localDate(user.timezone);
+  // The heatmap covers the last year, but never more than the window.
+  const yearAgo = addDays(today, -370);
+  const heatFrom = from > yearAgo ? from : yearAgo;
   return c.json({
     id: publicHandle(user),
     name: publicName(user),
+    /** The share window in days; 0 = all time. */
     days: user.shareDays,
-    from,
+    // summary() moves an all-time start to the first day with data.
+    from: s.from,
     to,
+    spanDays: s.days.length,
     total: s.total,
     daily: user.shareActivity ? s.days.map((d) => ({ date: d.date, total: d.total })) : null,
     breakdowns,
-    activity: user.shareActivity ? await activity(user, addDays(today, -370), addDays(today, 1)) : null,
+    activity: user.shareActivity ? await activity(user, heatFrom, addDays(today, 1)) : null,
     memberSince: user.createdAt,
   });
 });
@@ -171,7 +182,7 @@ publicRoutes.get("/card/:file", async (c) => {
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="Inter,Segoe UI,system-ui,sans-serif" role="img" aria-label="${esc(title)}">
 <rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="10" fill="${bg}" stroke="${border}"/>
 <text x="20" y="28" fill="${fg}" font-size="14" font-weight="600">${esc(title)}</text>
-<text x="${W - 20}" y="28" fill="${muted}" font-size="12" text-anchor="end">${user.shareDays} days</text>
+<text x="${W - 20}" y="28" fill="${muted}" font-size="12" text-anchor="end">${user.shareDays ? `${user.shareDays} days` : "all time"}</text>
 <clipPath id="bar"><rect x="20" y="52" width="${barW}" height="8" rx="4"/></clipPath>
 <g clip-path="url(#bar)">${segments || `<rect x="20" y="52" width="${barW}" height="8" fill="${border}"/>`}</g>
 ${legend}

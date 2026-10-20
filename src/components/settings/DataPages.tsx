@@ -343,9 +343,9 @@ export function SharingPage() {
         </Row>
         <Row label={t("shareWindow")} hint={t("shareWindowHint")} disabled={!anyPublic}>
           <select value={s.days} disabled={!anyPublic} onChange={(e) => void share({ days: Number(e.target.value) })}>
-            {[7, 30, 90, 365].map((d) => (
+            {[7, 30, 90, 365, 0].map((d) => (
               <option key={d} value={d}>
-                {t("daysN", { n: d })}
+                {d ? t("daysN", { n: d }) : t("allTime")}
               </option>
             ))}
           </select>
