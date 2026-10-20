@@ -280,29 +280,69 @@ export function SharingPage() {
   const [picked, setProject] = useState("");
   // The project list may arrive after the page opens.
   const project = picked || projects?.find((p) => p.name)?.name || "";
-  const share = (patch: Partial<typeof s>) => void save({ sharing: patch });
-  const profileUrl = `${origin}/u/${encodeURIComponent(me.id)}`;
-  const badge = `${origin}/api/badge/${encodeURIComponent(me.id)}.svg`;
+  const share = (patch: Partial<typeof s>) => save({ sharing: patch });
+  const [handle, setHandle] = useState(s.handle === me.id ? "" : s.handle);
+  const [publicName, setPublicName] = useState(s.name);
+  const anyPublic = s.page || s.api;
+  const h = encodeURIComponent(s.handle);
+  const profileUrl = `${origin}/u/${h}`;
+  const apiUrl = `${origin}/api/v1/users/${h}/stats`;
+  const badge = `${origin}/api/badge/${h}.svg`;
   const projectBadge = `${badge}?project=${encodeURIComponent(project)}`;
-  const card = `${origin}/api/card/${encodeURIComponent(me.id)}.svg`;
+  const card = `${origin}/api/card/${h}.svg`;
   // Bust the browser's cache of the previews when settings change.
-  const v = JSON.stringify(s).length + Number(s.publicProfile) * 1000 + s.days;
+  const v = JSON.stringify(s).length + Number(s.api) * 1000 + s.days;
 
   return (
     <>
       <PageHeader title={t("sharing")} hint={t("sharingHint")} />
       <section className="settings-rows">
-        <Row label={t("publicProfile")} hint={s.publicProfile ? <a href={profileUrl} target="_blank" rel="noreferrer">{profileUrl}</a> : t("publicProfileHint")}>
-          {s.publicProfile && (
+        <h3>{t("publicIdentity")}</h3>
+        <Row label={t("publicHandle")} hint={t("publicHandleHint", { username: me.id })}>
+          <form
+            className="inline-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void share({ handle: handle.trim() });
+            }}
+          >
+            <input className="text-field" value={handle} placeholder={me.id} maxLength={63} onChange={(e) => setHandle(e.target.value)} />
+            <button className="primary-button" disabled={(handle.trim() || me.id) === s.handle}>
+              {t("save")}
+            </button>
+          </form>
+        </Row>
+        <Row label={t("publicNameLabel")} hint={t("publicNameHint")}>
+          <form
+            className="inline-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void share({ name: publicName.trim() });
+            }}
+          >
+            <input className="text-field" value={publicName} placeholder={s.handle} maxLength={100} onChange={(e) => setPublicName(e.target.value)} />
+            <button className="primary-button" disabled={publicName.trim() === s.name}>
+              {t("save")}
+            </button>
+          </form>
+        </Row>
+      </section>
+      <section className="settings-rows">
+        <h3>{t("publicWhere")}</h3>
+        <Row label={t("publicPage")} hint={s.page ? <a href={profileUrl} target="_blank" rel="noreferrer">{profileUrl}</a> : t("publicPageHint")}>
+          {s.page && (
             <a className="text-button" href={profileUrl} target="_blank" rel="noreferrer">
               <ExternalLink size={14} />
               {t("openProfile")}
             </a>
           )}
-          <Switch checked={s.publicProfile} onChange={(on) => share({ publicProfile: on })} label={t("publicProfile")} />
+          <Switch checked={s.page} onChange={(on) => void share({ page: on })} label={t("publicPage")} />
         </Row>
-        <Row label={t("shareWindow")} hint={t("shareWindowHint")} disabled={!s.publicProfile}>
-          <select value={s.days} disabled={!s.publicProfile} onChange={(e) => share({ days: Number(e.target.value) })}>
+        <Row label={t("publicApi")} hint={s.api ? <code>{apiUrl}</code> : t("publicApiHint")}>
+          <Switch checked={s.api} onChange={(on) => void share({ api: on })} label={t("publicApi")} />
+        </Row>
+        <Row label={t("shareWindow")} hint={t("shareWindowHint")} disabled={!anyPublic}>
+          <select value={s.days} disabled={!anyPublic} onChange={(e) => void share({ days: Number(e.target.value) })}>
             {[7, 30, 90, 365].map((d) => (
               <option key={d} value={d}>
                 {t("daysN", { n: d })}
@@ -323,12 +363,12 @@ export function SharingPage() {
             ["activity", "shareActivity"],
           ] as const
         ).map(([key, label]) => (
-          <Row key={key} label={t(label)} disabled={!s.publicProfile}>
-            <Switch checked={s[key]} disabled={!s.publicProfile} onChange={(on) => share({ [key]: on })} label={t(label)} />
+          <Row key={key} label={t(label)} disabled={!anyPublic}>
+            <Switch checked={s[key]} disabled={!anyPublic} onChange={(on) => void share({ [key]: on })} label={t(label)} />
           </Row>
         ))}
       </section>
-      {s.publicProfile && (
+      {s.api && (
         <section>
           <h3>{t("badges")}</h3>
           <p className="small muted">{t("badgesHint")}</p>

@@ -13,7 +13,7 @@ import { canonicalLanguage } from "./names.ts";
 import { sendWeeklyReport } from "./reports.ts";
 import { RELEASES_URL, updateStatus } from "./updates.ts";
 import { activity, addDays, files, localDate, parseFilters, projects, rangeBounds, rhythm, summary } from "./stats.ts";
-import { USERNAME, getUser, meView, type User } from "./users.ts";
+import { USERNAME, getUser, handleFree, meView, type User } from "./users.ts";
 
 export const api = new Hono<AppEnv>();
 api.use("*", requireUser);
@@ -153,7 +153,8 @@ api.patch("/profile", async (c) => {
   if (b.sharing && typeof b.sharing === "object") {
     const s = b.sharing as Record<string, unknown>;
     const map: Record<string, string> = {
-      publicProfile: "publicProfile",
+      page: "publicPage",
+      api: "publicApi",
       projects: "shareProjects",
       languages: "shareLanguages",
       editors: "shareEditors",
@@ -163,6 +164,16 @@ api.patch("/profile", async (c) => {
     };
     for (const [k, col] of Object.entries(map)) if (typeof s[k] === "boolean") patch[col] = s[k];
     if (s.days !== undefined) patch.shareDays = [7, 30, 90, 365].includes(Number(s.days)) ? Number(s.days) : 30;
+    if (s.name !== undefined) patch.publicName = str(s.name, 100);
+    if (s.handle !== undefined) {
+      const handle = str(s.handle, 63);
+      if (!handle || handle.toLowerCase() === user.id.toLowerCase()) patch.publicHandle = null;
+      else {
+        if (!USERNAME.test(handle)) throw bad("Use letters, numbers, dots, dashes and underscores");
+        if (!(await handleFree(handle, user.id))) throw new HttpError(409, "That public username is taken");
+        patch.publicHandle = handle;
+      }
+    }
   }
   if (Object.keys(patch).length === 0) return c.json(meView(user));
   await sql`UPDATE users SET ${sql(patch)} WHERE id = ${user.id}`;

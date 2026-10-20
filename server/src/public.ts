@@ -1,5 +1,6 @@
 // What other people can see, only when the user turned it on (Settings → Sharing):
-// the public profile, README badges and a languages card.
+// the public page (public_page), and README badges and a languages card (public_api, with the
+// WakaTime-compatible API in compat.ts). Users are found by public handle and shown by public name.
 
 import { Hono, type Context } from "hono";
 import colors from "./colors.json" with { type: "json" };
@@ -7,9 +8,9 @@ import { DIMENSIONS, sql, type Dimension } from "./db.ts";
 import { HttpError, rateLimit } from "./http.ts";
 import { formatDuration } from "./reports.ts";
 import { activity, addDays, localDate, rangeBounds, summary, type Filters } from "./stats.ts";
-import type { User } from "./users.ts";
+import { findByHandle, publicHandle, publicName, type User } from "./users.ts";
 
-const SHARED: Partial<Record<Dimension, keyof User>> = {
+export const SHARED: Partial<Record<Dimension, keyof User>> = {
   project: "shareProjects",
   language: "shareLanguages",
   editor: "shareEditors",
@@ -17,14 +18,15 @@ const SHARED: Partial<Record<Dimension, keyof User>> = {
   machine: "shareMachines",
 };
 
-async function publicUser(id: string): Promise<User> {
-  const [u] = await sql<User[]>`SELECT * FROM users WHERE lower(id) = lower(${id}) AND public_profile`;
-  if (!u) throw new HttpError(404, "Not found");
+/** "page": the public profile page. "api": the WakaTime-compatible API, badges and card. */
+export async function publicUser(handle: string, surface: "page" | "api"): Promise<User> {
+  const u = await findByHandle(handle);
+  if (!u || !(surface === "page" ? u.publicPage : u.publicApi)) throw new HttpError(404, "Not found");
   return u;
 }
 
 /** Shared ranges never reach further back than the user allows. */
-function sharedRange(user: User, range: string | undefined) {
+export function sharedRange(user: User, range: string | undefined) {
   const today = localDate(user.timezone);
   const allowedFrom = addDays(today, -(user.shareDays - 1));
   const b = rangeBounds(range ?? `last_${user.shareDays === 365 ? "12_months" : `${user.shareDays}_days`}`, user) ?? rangeBounds("last_7_days", user)!;
@@ -46,7 +48,7 @@ export const publicRoutes = new Hono();
 
 publicRoutes.get("/public/users/:id", async (c) => {
   rateLimit(c, "public", 120, 10 * 60_000);
-  const user = await publicUser(c.req.param("id"));
+  const user = await publicUser(c.req.param("id"), "page");
   const { from, to } = sharedRange(user, undefined);
   const s = await summary(user, from, to, {});
   const breakdowns: Partial<Record<Dimension, { name: string; seconds: number }[]>> = {};
@@ -55,8 +57,8 @@ publicRoutes.get("/public/users/:id", async (c) => {
   }
   const today = localDate(user.timezone);
   return c.json({
-    id: user.id,
-    name: user.name || user.id,
+    id: publicHandle(user),
+    name: publicName(user),
     days: user.shareDays,
     from,
     to,
@@ -102,7 +104,7 @@ publicRoutes.get("/badge/:file", async (c) => {
   rateLimit(c, "badge", 300, 10 * 60_000);
   const id = c.req.param("file").replace(/\.svg$/, "");
   try {
-    const user = await publicUser(id);
+    const user = await publicUser(id, "api");
     const q = c.req.query();
     const { from, to } = sharedRange(user, q.range);
     const s = await summary(user, from, to, sharedFilters(user, q));
@@ -126,7 +128,7 @@ publicRoutes.get("/card/:file", async (c) => {
   const border = dark ? "#343434" : "#e3e2e0";
   let user: User;
   try {
-    user = await publicUser(id);
+    user = await publicUser(id, "api");
     if (!user.shareLanguages) throw new HttpError(403, "Languages aren't shared");
   } catch (e) {
     if (e instanceof HttpError) return svg(c, badge("devtime", "not shared", "#9f9f9f"));
@@ -163,7 +165,7 @@ publicRoutes.get("/card/:file", async (c) => {
     })
     .join("");
   const H = 84 + Math.ceil(langs.length / 2) * 22;
-  const title = `${user.name || user.id} · ${formatDuration(s.total)}`;
+  const title = `${publicName(user)} · ${formatDuration(s.total)}`;
   return svg(
     c,
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="Inter,Segoe UI,system-ui,sans-serif" role="img" aria-label="${esc(title)}">

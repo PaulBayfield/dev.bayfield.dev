@@ -176,6 +176,17 @@ const MIGRATIONS: string[] = [
     DROP COLUMN recovery_codes;
   ALTER TABLE sessions DROP COLUMN mfa_pending;
   `,
+  /* 3: a public identity separate from the account (no SSO username or real name in public), and the
+        public page and public API switched on separately */ `
+  ALTER TABLE users
+    ADD COLUMN public_handle text,
+    ADD COLUMN public_name text NOT NULL DEFAULT '',
+    ADD COLUMN public_page boolean NOT NULL DEFAULT false,
+    ADD COLUMN public_api boolean NOT NULL DEFAULT false;
+  UPDATE users SET public_page = public_profile, public_api = public_profile;
+  ALTER TABLE users DROP COLUMN public_profile;
+  CREATE UNIQUE INDEX users_public_handle ON users (lower(public_handle));
+  `,
 ];
 
 export async function migrate() {

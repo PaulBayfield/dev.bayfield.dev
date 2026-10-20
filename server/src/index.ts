@@ -13,6 +13,7 @@ import { migrate, sql } from "./db.ts";
 import { api } from "./api.ts";
 import { authRoutes, sameOrigin } from "./auth.ts";
 import { HttpError } from "./http.ts";
+import { compatRoutes } from "./compat.ts";
 import { ingestRoutes } from "./ingest.ts";
 import { publicRoutes } from "./public.ts";
 import { startReportScheduler } from "./reports.ts";
@@ -63,6 +64,7 @@ app.get("/api/health", async (c) => {
 app.route("/api/auth", authRoutes);
 app.route("/api/app", api);
 app.route("/api", publicRoutes);
+app.route("/api", compatRoutes);
 app.route("/api", ingestRoutes);
 app.all("/api/*", (c) => c.json({ error: "Not found" }, 404));
 

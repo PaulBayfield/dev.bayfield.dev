@@ -52,7 +52,14 @@ export interface Me {
   heartbeatTimeout: number;
   ssoLinked: boolean;
   sharing: {
-    publicProfile: boolean;
+    /** The public profile page (/u/<handle>). */
+    page: boolean;
+    /** The WakaTime-compatible API, badges and card. */
+    api: boolean;
+    /** Name in public links (the username unless one was chosen). */
+    handle: string;
+    /** Name shown publicly; empty: the handle. */
+    name: string;
     days: number;
     projects: boolean;
     languages: boolean;

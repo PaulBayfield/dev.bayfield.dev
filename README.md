@@ -56,7 +56,7 @@ Key features:
 - **Projects:** every project with its last activity and totals; per-project pages with branches, languages and most-worked-on files; rename or merge projects (future heartbeats follow through an alias)
 - **Goals:** daily or weekly targets for all coding or one project, language, editor or category, with streaks and history
 - **Weekly report** by email (English or French)
-- **Public profile, README badges and a languages card**, all off until you turn them on, and limited to what you choose to share
+- **Public page, a WakaTime-compatible API, README badges and a languages card**, all off until you turn them on, under a public name you choose, and limited to what you choose to share
 - **Sign in with Authentik** (OIDC) only: no DevTime passwords; MFA is Authentik's job. See and sign out your devices
 - **Themes:** System, Light, Dark, Rosé Pine, Rosé Pine Dawn. UI in English or French
 - Export everything as CSV or JSON
@@ -233,7 +233,13 @@ That gap is stored on each heartbeat and rolled up per day (`daily_stats`), so a
 
 ## 🌍 • Sharing & Badges
 
-Off by default. In **Settings → Sharing**, turn on the public profile (`/u/<username>`), pick a window (7–365 days) and what to show (languages, editors, project names, OS, machines, activity calendar). Then:
+Off by default. In **Settings → Sharing**:
+
+- **Public identity**: a public username for your links and a public name to show. Your single sign-on username and real name never appear publicly, and once you pick a public username your account name stops working in public URLs.
+- **Where**: the **public page** (`/u/<public username>`) and the **public API and badges** are switched on separately, so you can share the API without a page, or the reverse.
+- **What**: a window (7–365 days) and what to show (languages, editors, project names, OS, machines, activity calendar).
+
+Badges and the languages card come with the public API:
 
 ```md
 ![coding time](https://dev.bayfield.dev/api/badge/<username>.svg)
@@ -242,6 +248,22 @@ Off by default. In **Settings → Sharing**, turn on the public profile (`/u/<us
 ```
 
 Badges take `range` (`last_7_days`, `last_30_days`, …, never further back than the shared window), `label` and `color`.
+
+### WakaTime-Compatible API
+
+Under `/api`, `/api/v1` and `/api/compat/wakatime/v1`, so wakapi and WakaTime clients only need a new base URL:
+
+| Route | Returns |
+|---|---|
+| `GET /users/:user` | The user: name, last heartbeat, last project and editor |
+| `GET /users/:user/summaries?start=YYYY-MM-DD&end=YYYY-MM-DD` | One entry per day (end included) with totals and breakdowns; or `?range=last_7_days` |
+| `GET /users/:user/stats/:range` | Totals and breakdowns over `last_7_days` (default), `last_30_days`, `last_6_months`, `last_year`, `all_time`, … |
+| `GET /users/:user/statusbar/today` | What editors show in their status bar (key only) |
+
+- **With your API key** (`Authorization: Basic base64(key)` or `Bearer <key>`, `:user` = `current`, your username or public username): everything.
+- **Without a key** (`:user` = public username): only with the public API on, and only what you share. Hidden breakdowns are left out, nothing older than the window, and `summaries` (day by day) needs the activity calendar to be shared.
+
+The read routes send `Access-Control-Allow-Origin: *`, so a website can call them from the browser.
 
 
 ## ❤️ • Health Check
@@ -276,7 +298,8 @@ dev.bayfield.dev/
 │   │   ├── stats.ts            # Dashboard queries
 │   │   ├── auth.ts             # Sessions and Authentik (OIDC) sign-in
 │   │   ├── api.ts              # The app's API
-│   │   ├── public.ts           # Public profile, badges, languages card
+│   │   ├── public.ts           # Public page, badges, languages card
+│   │   ├── compat.ts           # WakaTime-compatible read API (user, summaries, stats)
 │   │   ├── reports.ts          # Weekly emails
 │   │   ├── migrate-wakapi.ts   # wakapi importer
 │   │   ├── cli.ts              # Account chores

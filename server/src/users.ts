@@ -11,7 +11,12 @@ export interface User {
   timezone: string;
   weekStart: number;
   heartbeatTimeout: number;
-  publicProfile: boolean;
+  /** Name in public links (/u/<handle>, badges, API); null: the username. */
+  publicHandle: string | null;
+  /** Name shown publicly; empty: the handle. Never the SSO real name. */
+  publicName: string;
+  publicPage: boolean;
+  publicApi: boolean;
   shareDays: number;
   shareProjects: boolean;
   shareLanguages: boolean;
@@ -44,7 +49,10 @@ export function meView(u: User) {
     /** False for accounts imported or created by an admin until their first sign-in. */
     ssoLinked: !!u.oidcSub,
     sharing: {
-      publicProfile: u.publicProfile,
+      page: u.publicPage,
+      api: u.publicApi,
+      handle: publicHandle(u),
+      name: u.publicName,
       days: u.shareDays,
       projects: u.shareProjects,
       languages: u.shareLanguages,
@@ -56,6 +64,26 @@ export function meView(u: User) {
     weeklyReport: u.weeklyReport,
     createdAt: u.createdAt,
   };
+}
+
+/** The name in public links. */
+export const publicHandle = (u: Pick<User, "id" | "publicHandle">) => u.publicHandle ?? u.id;
+
+/** What the public sees as a name: chosen in Settings → Sharing, never the real name from the provider. */
+export const publicName = (u: Pick<User, "id" | "publicHandle" | "publicName">) => u.publicName || publicHandle(u);
+
+/** A user by public handle, or undefined. Account usernames only work while no other handle is set. */
+export async function findByHandle(handle: string): Promise<User | undefined> {
+  const [u] = await sql<User[]>`SELECT * FROM users WHERE lower(coalesce(public_handle, id)) = lower(${handle})`;
+  return u;
+}
+
+/** True if no other account uses `name` as username or public handle. */
+export async function handleFree(name: string, exceptUser?: string): Promise<boolean> {
+  const [taken] = await sql`
+    SELECT 1 FROM users
+    WHERE (lower(id) = lower(${name}) OR lower(public_handle) = lower(${name})) AND id <> ${exceptUser ?? ""}`;
+  return !taken;
 }
 
 /** Usernames end up in URLs (public profile, badges): keep them simple. */
@@ -71,7 +99,6 @@ export async function freeUsername(wanted: string): Promise<string> {
       .slice(0, 50) || "user";
   for (let i = 1; ; i++) {
     const candidate = i === 1 ? base : `${base}${i}`;
-    const [taken] = await sql`SELECT 1 FROM users WHERE lower(id) = lower(${candidate})`;
-    if (!taken) return candidate;
+    if (await handleFree(candidate)) return candidate;
   }
 }

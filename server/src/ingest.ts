@@ -11,12 +11,12 @@ import { recompute } from "./durations.ts";
 import { HttpError } from "./http.ts";
 import { canonicalEditor, canonicalLanguage, canonicalOs, parseUserAgent } from "./names.ts";
 import { rangeBounds, summary } from "./stats.ts";
-import { getUser, type User } from "./users.ts";
+import { getUser, publicHandle, type User } from "./users.ts";
 
 type IngestEnv = { Variables: { user: User; readOnly: boolean } };
 
 /** The key from "Basic base64(key)", "Bearer base64(key)", "Bearer key" or ?api_key=. */
-function apiKeyOf(c: Context): string | null {
+export function apiKeyOf(c: Context): string | null {
   const header = c.req.header("Authorization") ?? "";
   const m = header.match(/^(Basic|Bearer)\s+(.+)$/i);
   if (m) {
@@ -44,7 +44,7 @@ async function requireApiKey(c: Context<IngestEnv>, next: () => Promise<void>) {
   if (!user) throw new HttpError(401, "Invalid API key");
   // "current" or the key owner's own name; wakapi accepted both.
   const named = c.req.param("user");
-  if (named && named !== "current" && named !== user.id) throw new HttpError(403, "This key belongs to another user");
+  if (named && named !== "current" && named.toLowerCase() !== user.id.toLowerCase() && named.toLowerCase() !== publicHandle(user).toLowerCase()) throw new HttpError(403, "This key belongs to another user");
   if (!row.lastUsedAt || Date.now() - row.lastUsedAt.getTime() > 60_000) {
     await sql`UPDATE api_keys SET last_used_at = now() WHERE key = ${key}`;
   }
@@ -250,13 +250,13 @@ async function handleHeartbeats(c: Context<IngestEnv>) {
 
 // --- Status bar (the "today" time editors show) ---
 
-function digital(seconds: number) {
+export function digital(seconds: number) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   return { hours: h, minutes: m, digital: `${h}:${String(m).padStart(2, "0")}`, text: h ? `${h} hrs ${m} mins` : `${m} mins` };
 }
 
-function items(list: { name: string; seconds: number }[], total: number) {
+export function items(list: { name: string; seconds: number }[], total: number) {
   return list.map((i) => ({
     name: i.name || "unknown",
     total_seconds: i.seconds,
