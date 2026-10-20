@@ -106,9 +106,10 @@ interface Discovery {
 let discovery: Promise<Discovery> | null = null;
 function discover(): Promise<Discovery> {
   if (!oidc) throw new HttpError(404, "Single sign-on isn't configured");
-  discovery ??= fetch(`${oidc.issuer}/.well-known/openid-configuration`)
+  const url = `${oidc.issuer}/.well-known/openid-configuration`;
+  discovery ??= fetch(url)
     .then((r) => {
-      if (!r.ok) throw new Error(`OIDC discovery failed (${r.status})`);
+      if (!r.ok) throw new Error(`OIDC discovery failed (${r.status} from ${JSON.stringify(url)}): check OIDC_ISSUER`);
       return r.json() as Promise<Discovery>;
     })
     .catch((e) => {

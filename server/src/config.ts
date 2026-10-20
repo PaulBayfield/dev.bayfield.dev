@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 function required(name: string): string {
-  const value = process.env[name];
+  const value = process.env[name]?.trim();
   if (!value) throw new Error(`Missing environment variable ${name} (see server/.env.example)`);
   return value;
 }
@@ -53,7 +53,10 @@ if (!process.env.OIDC_ISSUER && !DEV_LOGIN_USER) {
 /** Sign in with Authentik (or any OIDC provider): the only way in. */
 export const oidc = process.env.OIDC_ISSUER
   ? {
-      issuer: process.env.OIDC_ISSUER.replace(/\/+$/, ""),
+      // Tolerates what .env files tend to add: spaces, a CR from Windows line endings, quotes.
+      issuer: process.env.OIDC_ISSUER.trim()
+        .replace(/^["']|["']$/g, "")
+        .replace(/\/+$/, ""),
       clientId: required("OIDC_CLIENT_ID"),
       clientSecret: required("OIDC_CLIENT_SECRET"),
       /** Shown on the sign-in button. */
