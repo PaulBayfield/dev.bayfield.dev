@@ -12,6 +12,8 @@ import { DATABASE_URL } from "./config.ts";
 
 export const sql = postgres(DATABASE_URL, {
   max: Number(process.env.DATABASE_POOL_MAX ?? 10),
+  // Close idle connections: each one is a Postgres process holding several MB.
+  idle_timeout: 60,
   onnotice: () => {},
   transform: postgres.camel,
 });
