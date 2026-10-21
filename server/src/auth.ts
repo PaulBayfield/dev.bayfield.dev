@@ -138,7 +138,7 @@ interface Claims {
 
 /**
  * Finds (or creates) the account for a provider identity. An account that was never signed into
- * (imported from wakapi, or created by an admin) is claimed by verified email, then by username:
+ * (imported from wakapi, or created by an admin) is claimed by email, then by username:
  * every identity comes from your own provider, so a matching name is the same person.
  */
 async function oidcUser(claims: Claims): Promise<User> {
@@ -160,8 +160,10 @@ async function oidcUser(claims: Claims): Promise<User> {
     return (await getUser(bySub.id))!;
   }
 
+  // Authentik marks every email unverified by default, so the flag isn't checked: the
+  // provider is your own, like the username match below.
   const email = claims.email?.toLowerCase();
-  if (email && claims.email_verified !== false) {
+  if (email) {
     const [byEmail] = await sql<User[]>`SELECT * FROM users WHERE lower(email) = ${email} AND oidc_sub IS NULL`;
     if (byEmail) return claim(byEmail);
   }
