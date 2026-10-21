@@ -17,7 +17,7 @@ const PANELS: { dim: Dimension; label: StringKey }[] = [
 
 export function PublicProfile({ user }: { user: string }) {
   const { t, f } = useSettings();
-  const { data, error } = useApi<Profile>(`/public/users/${encodeURIComponent(user)}`);
+  const { data, error } = useApi<Profile>(`/public/users/${encodeURIComponent(user)}`, true);
 
   useEffect(() => {
     document.title = data ? `${data.name} · DevTime` : "DevTime";

@@ -71,7 +71,7 @@ function Shell({ me, setMe, router, onSignedOut }: { me: Me; setMe: (me: Me) => 
     return p ? (p as SettingsPage) : null;
   });
   const server = useApi<ServerInfo>("/app/server").data;
-  const projectsReq = useApi<ProjectRow[]>("/app/projects");
+  const projectsReq = useApi<ProjectRow[]>("/app/projects", true);
 
   useEffect(() => {
     if (new URLSearchParams(location.search).has("settings")) router.setQuery({ settings: undefined }, true);

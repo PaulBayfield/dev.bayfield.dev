@@ -33,14 +33,14 @@ export function Dashboard({ project }: Props) {
   const filters = { ...filtersOf(query), ...(project !== undefined ? { project } : {}) };
   const params = { ...range, ...filters };
 
-  const stats = useApi<Summary>(`/app/stats${qs(params)}`);
+  const stats = useApi<Summary>(`/app/stats${qs(params)}`, true);
   const s = stats.data;
   const prevRange = s && range.range !== "all_time" ? previousRange(s.from, s.to) : null;
-  const prev = useApi<Summary>(prevRange ? `/app/stats${qs({ ...prevRange, ...filters })}` : null).data;
-  const heat = useApi<{ date: string; seconds: number }[]>(`/app/activity${qs(filters)}`).data;
-  const rhythm = useApi<number[][]>(`/app/rhythm${qs(params)}`).data;
-  const files = useApi<Item[]>(project !== undefined ? `/app/projects/${encodeURIComponent(project)}/files${qs({ ...range, ...filtersOf(query) })}` : null).data;
-  const goals = useApi<Goal[]>(project === undefined ? "/app/goals" : null).data;
+  const prev = useApi<Summary>(prevRange ? `/app/stats${qs({ ...prevRange, ...filters })}` : null, true).data;
+  const heat = useApi<{ date: string; seconds: number }[]>(`/app/activity${qs(filters)}`, true).data;
+  const rhythm = useApi<number[][]>(`/app/rhythm${qs(params)}`, true).data;
+  const files = useApi<Item[]>(project !== undefined ? `/app/projects/${encodeURIComponent(project)}/files${qs({ ...range, ...filtersOf(query) })}` : null, true).data;
+  const goals = useApi<Goal[]>(project === undefined ? "/app/goals" : null, true).data;
 
   const [table, setTable] = useState(false);
   const [renaming, setRenaming] = useState(false);

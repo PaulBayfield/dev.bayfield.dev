@@ -26,21 +26,70 @@ export interface Loaded<T> {
   reload: () => void;
 }
 
-/** GETs `path` (null: nothing to load), keeping the previous data on screen while the next loads. */
-export function useApi<T>(path: string | null): Loaded<T> {
+/** How often live data is refetched while the page is visible. */
+const LIVE_INTERVAL = 60_000;
+
+/** One shared clock for every live hook, so they all refresh together. */
+const liveListeners = new Set<() => void>();
+let liveTimer: number | undefined;
+let lastTick = Date.now();
+
+function tick() {
+  lastTick = Date.now();
+  for (const listener of liveListeners) listener();
+}
+
+function onVisible() {
+  // Catch up at once when coming back to a tab that was hidden for a while.
+  if (document.visibilityState === "visible" && Date.now() - lastTick >= LIVE_INTERVAL) tick();
+}
+
+function subscribeLive(listener: () => void): () => void {
+  liveListeners.add(listener);
+  if (liveListeners.size === 1) {
+    lastTick = Date.now();
+    liveTimer = window.setInterval(() => {
+      if (document.visibilityState === "visible") tick();
+    }, LIVE_INTERVAL);
+    document.addEventListener("visibilitychange", onVisible);
+  }
+  return () => {
+    liveListeners.delete(listener);
+    if (liveListeners.size === 0) {
+      window.clearInterval(liveTimer);
+      document.removeEventListener("visibilitychange", onVisible);
+    }
+  };
+}
+
+/**
+ * GETs `path` (null: nothing to load), keeping the previous data on screen while the next loads.
+ * With `live`, it is also refetched in the background every minute while the page is visible.
+ */
+export function useApi<T>(path: string | null, live = false): Loaded<T> {
   const [data, setData] = useState<T | undefined>(() => (path ? (cache.get(path) as T | undefined) : undefined));
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(!!path);
   const [nonce, setNonce] = useState(0);
-  const current = useRef(path);
-  current.current = path;
+  // Set for a background refresh, which shows no spinner and keeps the data if it fails.
+  const quiet = useRef(false);
+
+  useEffect(() => {
+    if (!path || !live) return;
+    return subscribeLive(() => {
+      quiet.current = true;
+      setNonce((n) => n + 1);
+    });
+  }, [path, live]);
 
   useEffect(() => {
     if (!path) return;
     let live = true;
+    const silent = quiet.current;
+    quiet.current = false;
     const hit = cache.get(path) as T | undefined;
     if (hit !== undefined) setData(hit);
-    setLoading(true);
+    if (!silent) setLoading(true);
     api<T>(path).then(
       (value) => {
         cache.set(path, value);
@@ -51,7 +100,7 @@ export function useApi<T>(path: string | null): Loaded<T> {
         }
       },
       (e: Error) => {
-        if (live) {
+        if (live && !silent) {
           setError(e.message);
           setLoading(false);
         }

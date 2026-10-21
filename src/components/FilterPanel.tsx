@@ -29,7 +29,7 @@ export function FilterPanel({ project }: { project?: string }) {
   // Values come from the whole range (on a project page, that project), not narrowed by the other
   // filters: picking a language shouldn't hide the other languages you might switch to.
   const base = { ...rangeParams(query), ...(project !== undefined ? { project } : {}) };
-  const { data } = useApi<Summary>(`/app/stats${qs(base)}`);
+  const { data } = useApi<Summary>(`/app/stats${qs(base)}`, true);
   const active = filtersOf(query);
   const activeDims = (Object.keys(active) as Dimension[]).filter((d) => !(project !== undefined && d === "project"));
 

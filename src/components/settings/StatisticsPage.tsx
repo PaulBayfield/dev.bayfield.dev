@@ -38,7 +38,7 @@ interface Statistics {
 
 export function StatisticsPage() {
   const { t, f } = useSettings();
-  const { data, error } = useApi<Statistics>("/app/statistics");
+  const { data, error } = useApi<Statistics>("/app/statistics", true);
   const n = (v: string | number) => f.number(Number(v));
   const bytes = (v: string) => {
     const b = Number(v);

@@ -17,7 +17,7 @@ const SCOPES: { id: Goal["dimension"] | "all"; label: StringKey }[] = [
 
 export function GoalsPage() {
   const { t } = useSettings();
-  const goals = useApi<Goal[]>("/app/goals");
+  const goals = useApi<Goal[]>("/app/goals", true);
   const [editing, setEditing] = useState<Goal | "new" | null>(null);
   const [deleting, setDeleting] = useState<Goal | null>(null);
 
@@ -159,7 +159,7 @@ function GoalDialog({ goal, onClose, onSaved }: { goal: Goal | null; onClose: ()
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Suggestions from the last year.
-  const year = useApi<Summary>(scope !== "all" ? "/app/stats?range=last_12_months" : null).data;
+  const year = useApi<Summary>(scope !== "all" ? "/app/stats?range=last_12_months" : null, true).data;
   const suggestions = scope !== "all" && year ? year.breakdowns[scope!].map((i) => i.name).filter(Boolean) : [];
 
   return (
