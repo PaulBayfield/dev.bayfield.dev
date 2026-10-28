@@ -187,6 +187,19 @@ const MIGRATIONS: string[] = [
   ALTER TABLE users DROP COLUMN public_profile;
   CREATE UNIQUE INDEX users_public_handle ON users (lower(public_handle));
   `,
+  /* 4: every heartbeat's duration is set once the next one arrives. With duration in no index and
+        room left on each page, that update stays on the page (HOT) instead of adding an entry to
+        every index and bloating the table; autovacuum also runs sooner on these busy tables */ `
+  DROP INDEX heartbeats_user_time;
+  CREATE INDEX heartbeats_user_time ON heartbeats(user_id, time);
+  ALTER TABLE heartbeats SET (
+    fillfactor = 90,
+    autovacuum_vacuum_scale_factor = 0.02,
+    autovacuum_vacuum_insert_scale_factor = 0.02,
+    autovacuum_analyze_scale_factor = 0.02
+  );
+  ALTER TABLE daily_stats SET (autovacuum_vacuum_scale_factor = 0.05, autovacuum_analyze_scale_factor = 0.05);
+  `,
 ];
 
 export async function migrate() {

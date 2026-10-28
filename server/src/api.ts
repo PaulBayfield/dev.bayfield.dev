@@ -368,40 +368,51 @@ api.get("/statistics", async (c) => {
     SELECT (SELECT count(*) FROM api_keys WHERE user_id = ${user.id})::int AS keys,
            (SELECT count(*) FROM sessions WHERE user_id = ${user.id} AND expires_at > now())::int AS sessions`;
 
-  let server = null;
-  if (user.isAdmin) {
-    const [s] = await sql<
-      { users: number; activeUsers: number; heartbeats: string; last24h: string; lastHour: string; rollupRows: string; dbSize: string; heartbeatsSize: string; rollupSize: string; postgres: string }[]
-    >`
-      SELECT
-        (SELECT count(*) FROM users)::int AS users,
-        (SELECT count(DISTINCT user_id) FROM heartbeats WHERE time >= ${since24h})::int AS active_users,
-        (SELECT count(*) FROM heartbeats)::text AS heartbeats,
-        (SELECT count(*) FROM heartbeats WHERE time >= ${since24h})::text AS last24h,
-        (SELECT count(*) FROM heartbeats WHERE created_at >= now() - interval '1 hour')::text AS last_hour,
-        (SELECT count(*) FROM daily_stats)::text AS rollup_rows,
-        pg_database_size(current_database())::text AS db_size,
-        pg_total_relation_size('heartbeats')::text AS heartbeats_size,
-        pg_total_relation_size('daily_stats')::text AS rollup_size,
-        current_setting('server_version') AS postgres`;
-    const perUser = await sql<{ id: string; heartbeats: string; last: Date | null; seconds: number; days: number }[]>`
-      SELECT u.id, count(h.id)::text AS heartbeats, max(h.time) AS last,
-             coalesce(max(s.seconds), 0) AS seconds, coalesce(max(s.days), 0) AS days
-      FROM users u
-      LEFT JOIN heartbeats h ON h.user_id = u.id
-      LEFT JOIN (SELECT user_id, sum(seconds)::float8 AS seconds, count(DISTINCT day)::int AS days FROM daily_stats GROUP BY user_id) s ON s.user_id = u.id
-      GROUP BY u.id ORDER BY count(h.id) DESC`;
-    server = {
-      ...s,
-      perUser,
-      node: process.version,
-      uptimeSeconds: Math.round((Date.now() - startedAt) / 1000),
-      memoryMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
-      version: APP_VERSION,
-    };
-  }
-  return c.json({ you: { ...mine, ...keys }, server });
+  return c.json({ you: { ...mine, ...keys }, server: user.isAdmin ? await serverStatistics() : null });
 });
+
+/** Server-wide numbers count the whole heartbeats table: computed at most every few minutes. */
+let serverStats: { value: Record<string, unknown>; until: number } | null = null;
+
+async function serverStatistics() {
+  const live = { uptimeSeconds: Math.round((Date.now() - startedAt) / 1000), memoryMb: Math.round(process.memoryUsage().rss / 1024 / 1024) };
+  if (serverStats && serverStats.until > Date.now()) return { ...serverStats.value, ...live };
+  // Every count goes through (user_id, time), the only index on time: per user, not table-wide.
+  const [s] = await sql<
+    { users: number; activeUsers: number; last24h: string; lastHour: string; rollupRows: string; dbSize: string; heartbeatsSize: string; rollupSize: string; postgres: string }[]
+  >`
+    SELECT
+      count(*)::int AS users,
+      (count(*) FILTER (WHERE r.n > 0))::int AS active_users,
+      sum(r.n)::text AS last24h,
+      sum(r.last_hour)::text AS last_hour,
+      (SELECT count(*) FROM daily_stats)::text AS rollup_rows,
+      pg_database_size(current_database())::text AS db_size,
+      pg_total_relation_size('heartbeats')::text AS heartbeats_size,
+      pg_total_relation_size('daily_stats')::text AS rollup_size,
+      current_setting('server_version') AS postgres
+    FROM users u, LATERAL (
+      SELECT count(*) AS n, count(*) FILTER (WHERE time >= now() - interval '1 hour') AS last_hour
+      FROM heartbeats WHERE user_id = u.id AND time >= now() - interval '24 hours'
+    ) r`;
+  // One pass over the index for both the per-user counts and the total.
+  const perUser = await sql<{ id: string; heartbeats: string; last: Date | null; seconds: number; days: number }[]>`
+    SELECT u.id, coalesce(h.n, 0)::text AS heartbeats, h.last,
+           coalesce(d.seconds, 0) AS seconds, coalesce(d.days, 0) AS days
+    FROM users u
+    LEFT JOIN (SELECT user_id, count(*) AS n, max(time) AS last FROM heartbeats GROUP BY user_id) h ON h.user_id = u.id
+    LEFT JOIN (SELECT user_id, sum(seconds)::float8 AS seconds, count(DISTINCT day)::int AS days FROM daily_stats GROUP BY user_id) d ON d.user_id = u.id
+    ORDER BY coalesce(h.n, 0) DESC`;
+  const value = {
+    ...s,
+    heartbeats: String(perUser.reduce((sum, u) => sum + Number(u.heartbeats), 0)),
+    perUser,
+    node: process.version,
+    version: APP_VERSION,
+  };
+  serverStats = { value, until: Date.now() + 5 * 60_000 };
+  return { ...value, ...live };
+}
 
 // --- Admin ---
 
