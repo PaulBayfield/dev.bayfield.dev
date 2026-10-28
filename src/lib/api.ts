@@ -143,6 +143,11 @@ export interface AdminUser {
   createdAt: string;
   lastSeenAt: string | null;
   lastHeartbeatAt: string | null;
+  seconds: number;
+  /** Coding time over the last 7 days. */
+  weekSeconds: number;
+  days: number;
+  projects: number;
 }
 
 export interface PublicProfile {

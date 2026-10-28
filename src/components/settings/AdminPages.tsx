@@ -14,6 +14,7 @@ export function UsersPage() {
   const toast = useToast();
   const users = useApi<AdminUser[]>("/app/admin/users");
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<AdminUser | null>(null);
   const [deleting, setDeleting] = useState<AdminUser | null>(null);
   const reload = () => {
     invalidate("/app/admin/users");
@@ -31,7 +32,7 @@ export function UsersPage() {
 
   return (
     <>
-      <PageHeader title={t("users")} hint={t("usersHint")} />
+      <PageHeader title={t("users")} hint={`${t("usersHint")} ${t("usersHintStats")}`} />
       <section>
         <div className="settings-list">
           {(users.data ?? []).map((u) => (
@@ -48,10 +49,21 @@ export function UsersPage() {
                   {u.lastHeartbeatAt && ` · ${t("lastActive").toLowerCase()} ${f.relative(u.lastHeartbeatAt, t)}`}
                 </span>
               </div>
+              <span className="small muted tabular" title={`${t("activeDays")}: ${f.number(u.days)} · ${t("projects")}: ${f.number(u.projects)}`}>
+                {f.duration(u.weekSeconds)} · {f.duration(u.seconds)}
+              </span>
               {u.id !== me.id && (
                 <Dropdown button={(_, toggle) => <button className="icon-button small" aria-label="More" onClick={toggle}><MoreHorizontal size={14} /></button>}>
                   {(close) => (
                     <>
+                      <button
+                        onClick={() => {
+                          close();
+                          setEditing(u);
+                        }}
+                      >
+                        {t("editUser")}
+                      </button>
                       <button
                         onClick={() => {
                           close();
@@ -91,6 +103,7 @@ export function UsersPage() {
         </button>
       </section>
       {creating && <NewUserDialog onClose={() => setCreating(false)} onCreated={reload} />}
+      {editing && <EditUserDialog user={editing} onClose={() => setEditing(null)} onSaved={reload} />}
       {deleting && (
         <ConfirmDialog
           title={t("deleteUser")}
@@ -159,6 +172,58 @@ function NewUserDialog({ onClose, onCreated }: { onClose: () => void; onCreated:
           </button>
           <button className="primary-button" disabled={busy}>
             {t("create")}
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+/** Name and email: users signed in through SSO can't change their own. */
+function EditUserDialog({ user, onClose, onSaved }: { user: AdminUser; onClose: () => void; onSaved: () => void }) {
+  const { t } = useSettings();
+  const toast = useToast();
+  const [form, setForm] = useState({ name: user.name, email: user.email ?? "" });
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <Dialog title={t("editUser")} onClose={onClose}>
+      <form
+        className="dialog-form"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          setError(null);
+          try {
+            await api(`/app/admin/users/${encodeURIComponent(user.id)}`, { method: "PATCH", body: form });
+            onSaved();
+            toast(t("saved"));
+            onClose();
+          } catch (err) {
+            setError((err as Error).message);
+            setBusy(false);
+          }
+        }}
+      >
+        <label className="field">
+          {t("username")}
+          <input className="text-field" value={user.id} disabled />
+        </label>
+        <label className="field">
+          {t("displayName")}
+          <input className="text-field" value={form.name} maxLength={100} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus />
+        </label>
+        <label className="field">
+          {t("emailLabel")}
+          <input className="text-field" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        </label>
+        {error && <p className="error-text">{error}</p>}
+        <div className="dialog-actions">
+          <button type="button" className="text-button" onClick={onClose}>
+            {t("cancel")}
+          </button>
+          <button className="primary-button" disabled={busy}>
+            {t("save")}
           </button>
         </div>
       </form>

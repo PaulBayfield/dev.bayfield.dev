@@ -124,19 +124,30 @@ api.delete("/goals/:id", async (c) => {
 
 // --- Profile & preferences ---
 
-api.patch("/profile", async (c) => {
-  const user = c.get("user");
-  const b = await body(c);
-  const patch: Record<string, unknown> = {};
+/** Name and email from a request body, checked: for the profile and for admins. */
+async function identityPatch(b: Record<string, unknown>, userId: string) {
+  const patch: { name?: string; email?: string | null } = {};
   if (b.name !== undefined) patch.name = str(b.name, 100);
   if (b.email !== undefined) {
     const email = str(b.email, 255).toLowerCase();
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw bad("That email doesn't look right");
     if (email) {
-      const [taken] = await sql`SELECT 1 FROM users WHERE lower(email) = ${email} AND id <> ${user.id}`;
+      const [taken] = await sql`SELECT 1 FROM users WHERE lower(email) = ${email} AND id <> ${userId}`;
       if (taken) throw new HttpError(409, "Another account uses that email");
     }
     patch.email = email || null;
+  }
+  return patch;
+}
+
+api.patch("/profile", async (c) => {
+  const user = c.get("user");
+  const b = await body(c);
+  const patch: Record<string, unknown> = {};
+  if (b.name !== undefined || b.email !== undefined) {
+    // The provider owns the identity of SSO accounts: only an admin changes it.
+    if (user.oidcSub && !user.isAdmin) throw new HttpError(403, "Your name and email come from single sign-on. Ask an admin to change them.");
+    Object.assign(patch, await identityPatch(b, user.id));
   }
   if (b.timezone !== undefined) {
     if (!isTimeZone(b.timezone)) throw bad("Unknown time zone");
@@ -373,9 +384,12 @@ api.get("/statistics", async (c) => {
         pg_total_relation_size('heartbeats')::text AS heartbeats_size,
         pg_total_relation_size('daily_stats')::text AS rollup_size,
         current_setting('server_version') AS postgres`;
-    const perUser = await sql<{ id: string; heartbeats: string; last: Date | null }[]>`
-      SELECT u.id, count(h.id)::text AS heartbeats, max(h.time) AS last
-      FROM users u LEFT JOIN heartbeats h ON h.user_id = u.id
+    const perUser = await sql<{ id: string; heartbeats: string; last: Date | null; seconds: number; days: number }[]>`
+      SELECT u.id, count(h.id)::text AS heartbeats, max(h.time) AS last,
+             coalesce(max(s.seconds), 0) AS seconds, coalesce(max(s.days), 0) AS days
+      FROM users u
+      LEFT JOIN heartbeats h ON h.user_id = u.id
+      LEFT JOIN (SELECT user_id, sum(seconds)::float8 AS seconds, count(DISTINCT day)::int AS days FROM daily_stats GROUP BY user_id) s ON s.user_id = u.id
       GROUP BY u.id ORDER BY count(h.id) DESC`;
     server = {
       ...s,
@@ -398,8 +412,17 @@ admin.get("/users", async (c) =>
   c.json(
     await sql`
       SELECT u.id, u.name, u.email, u.is_admin, (u.oidc_sub IS NOT NULL) AS sso_linked, u.created_at, u.last_seen_at,
-             (SELECT max(time) FROM heartbeats h WHERE h.user_id = u.id) AS last_heartbeat_at
-      FROM users u ORDER BY u.created_at`,
+             (SELECT max(time) FROM heartbeats h WHERE h.user_id = u.id) AS last_heartbeat_at,
+             coalesce(s.seconds, 0) AS seconds, coalesce(s.week_seconds, 0) AS week_seconds,
+             coalesce(s.days, 0) AS days, coalesce(s.projects, 0) AS projects
+      FROM users u
+      LEFT JOIN (
+        SELECT user_id, sum(seconds)::float8 AS seconds,
+               (sum(seconds) FILTER (WHERE day >= current_date - 6))::float8 AS week_seconds,
+               count(DISTINCT day)::int AS days, count(DISTINCT project)::int AS projects
+        FROM daily_stats GROUP BY user_id
+      ) s ON s.user_id = u.id
+      ORDER BY u.created_at`,
   ),
 );
 
@@ -423,6 +446,8 @@ admin.patch("/users/:id", async (c) => {
     if (!b.isAdmin && id === c.get("user").id) throw bad("You can't remove your own admin rights");
     await sql`UPDATE users SET is_admin = ${b.isAdmin} WHERE id = ${id}`;
   }
+  const identity = await identityPatch(b, id);
+  if (Object.keys(identity).length) await sql`UPDATE users SET ${sql(identity)} WHERE id = ${id}`;
   if (b.signOut === true) await signOutEverywhere(id);
   return c.json({ ok: true });
 });

@@ -32,7 +32,7 @@ interface Statistics {
     uptimeSeconds: number;
     memoryMb: number;
     version: string;
-    perUser: { id: string; heartbeats: string; last: string | null }[];
+    perUser: { id: string; heartbeats: string; last: string | null; seconds: number; days: number }[];
   };
 }
 
@@ -118,6 +118,8 @@ export function StatisticsPage() {
                 <tr>
                   <th>{t("username")}</th>
                   <th className="num">{t("heartbeatsLabel")}</th>
+                  <th className="num">{t("codingTime")}</th>
+                  <th className="num">{t("activeDays")}</th>
                   <th className="num">{t("lastHeartbeat")}</th>
                 </tr>
               </thead>
@@ -126,6 +128,8 @@ export function StatisticsPage() {
                   <tr key={u.id}>
                     <td>{u.id}</td>
                     <td className="num">{n(u.heartbeats)}</td>
+                    <td className="num">{f.duration(u.seconds)}</td>
+                    <td className="num">{n(u.days)}</td>
                     <td className="num muted">{u.last ? f.relative(u.last, t) : "—"}</td>
                   </tr>
                 ))}

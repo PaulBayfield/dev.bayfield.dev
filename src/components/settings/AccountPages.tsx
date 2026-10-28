@@ -11,7 +11,7 @@ import { PageHeader, Row, useSaveProfile } from "./common";
 
 export function ProfilePage() {
   const { t } = useSettings();
-  const { me, signOut } = useApp();
+  const { me, signOut, server } = useApp();
   const { save, busy } = useSaveProfile();
   const toast = useToast();
   const [name, setName] = useState(me.name);
@@ -25,6 +25,8 @@ export function ProfilePage() {
     }
   }, [me.timezone]);
   const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // The provider owns SSO identities: only admins edit them (Settings → Users for others).
+  const locked = me.ssoLinked && !me.isAdmin;
 
   return (
     <>
@@ -33,34 +35,47 @@ export function ProfilePage() {
         <Row label={t("username")} hint={t("usernameHint")}>
           <span className="muted">{me.id}</span>
         </Row>
-        <Row label={t("nameLabel")}>
-          <form
-            className="inline-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void save({ name });
-            }}
-          >
-            <input className="text-field" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
-            <button className="primary-button" disabled={busy || name.trim() === me.name}>
-              {t("save")}
-            </button>
-          </form>
-        </Row>
-        <Row label={t("emailLabel")} hint={t("emailHint")}>
-          <form
-            className="inline-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void save({ email });
-            }}
-          >
-            <input className="text-field" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <button className="primary-button" disabled={busy || email.trim() === (me.email ?? "")}>
-              {t("save")}
-            </button>
-          </form>
-        </Row>
+        {locked ? (
+          <>
+            <Row label={t("nameLabel")} hint={t("identityLocked", { name: server?.oidc?.name ?? "SSO" })}>
+              <span className="muted">{me.name}</span>
+            </Row>
+            <Row label={t("emailLabel")} hint={t("emailHint")}>
+              <span className="muted">{me.email ?? "—"}</span>
+            </Row>
+          </>
+        ) : (
+          <>
+            <Row label={t("nameLabel")}>
+              <form
+                className="inline-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void save({ name });
+                }}
+              >
+                <input className="text-field" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} />
+                <button className="primary-button" disabled={busy || name.trim() === me.name}>
+                  {t("save")}
+                </button>
+              </form>
+            </Row>
+            <Row label={t("emailLabel")} hint={t("emailHint")}>
+              <form
+                className="inline-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void save({ email });
+                }}
+              >
+                <input className="text-field" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <button className="primary-button" disabled={busy || email.trim() === (me.email ?? "")}>
+                  {t("save")}
+                </button>
+              </form>
+            </Row>
+          </>
+        )}
       </section>
       <section className="settings-rows">
         <Row label={t("timezone")} hint={t("timezoneHint")}>
