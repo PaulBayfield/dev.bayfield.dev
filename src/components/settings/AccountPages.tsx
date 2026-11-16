@@ -6,6 +6,7 @@ import { useSettings, type Settings, type Theme } from "../../lib/settings";
 import type { StringKey } from "../../lib/i18n";
 import { ConfirmDialog, useToast } from "../common";
 import { PageHeader, Row, useSaveProfile } from "./common";
+import { connectPrefs, disconnectPrefs, usePrefsStatus } from "../../lib/prefs";
 
 // --- Profile ---
 
@@ -197,6 +198,7 @@ export function PreferencesPage() {
           ])}
         </Row>
       </section>
+      <PrefsSyncRow />
     </>
   );
 }
@@ -266,4 +268,34 @@ function describeAgent(ua: string): string {
   const browser = /edg\//i.test(ua) ? "Edge" : /firefox\//i.test(ua) ? "Firefox" : /chrome\//i.test(ua) ? "Chrome" : /safari\//i.test(ua) ? "Safari" : ua.split(" ")[0] || "?";
   const os = /windows/i.test(ua) ? "Windows" : /android/i.test(ua) ? "Android" : /iphone|ipad/i.test(ua) ? "iOS" : /mac os/i.test(ua) ? "macOS" : /linux/i.test(ua) ? "Linux" : "";
   return os ? `${browser} · ${os}` : browser;
+}
+
+/** Theme, language, time format, durations and time zone shared with the other bayfield.dev apps, through prefs.bayfield.dev. */
+function PrefsSyncRow() {
+  const { t } = useSettings();
+  const { status, email } = usePrefsStatus();
+  const hint =
+    status === "connected"
+      ? t("prefsConnected", { email: email ?? "" })
+      : status === "connecting"
+        ? t("prefsApprove")
+        : status === "offline"
+          ? t("prefsOffline")
+          : t("prefsHint");
+  return (
+    <section className="settings-rows">
+      <h3>{t("prefsTitle")}</h3>
+      <Row label={t("prefsLabel")} hint={hint}>
+        {status === "connected" ? (
+          <button className="text-button" onClick={() => void disconnectPrefs()}>
+            {t("prefsDisconnect")}
+          </button>
+        ) : status === "disconnected" || status === "connecting" ? (
+          <button className="primary-button" onClick={() => void connectPrefs("Dev")}>
+            {t("prefsConnect")}
+          </button>
+        ) : null}
+      </Row>
+    </section>
+  );
 }

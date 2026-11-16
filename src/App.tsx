@@ -16,6 +16,7 @@ import { PublicProfile } from "./components/PublicProfile";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { FilterPanel } from "./components/FilterPanel";
 import { SearchDialog } from "./components/SearchDialog";
+import { usePrefsSync } from "./lib/prefs";
 
 export default function App() {
   return (
@@ -62,6 +63,19 @@ function Root() {
 
 function Shell({ me, setMe, router, onSignedOut }: { me: Me; setMe: (me: Me) => void; router: ReturnType<typeof useRouter>; onSignedOut: () => void }) {
   const { settings, update, dark, lang } = useSettings();
+  // Shared with the other bayfield.dev apps (prefs.bayfield.dev). The time zone lives on this
+  // app's server (Settings → Profile): it's saved there, and the stats are worked out again.
+  usePrefsSync(
+    { theme: settings.theme, language: settings.language, timeFormat: settings.timeFormat, durationStyle: settings.durationStyle, timeZone: me.timezone },
+    ({ timeZone, ...local }) => {
+      if (Object.keys(local).length) update(local);
+      if (timeZone)
+        void api<Me>("/app/profile", { method: "PATCH", body: { timezone: timeZone } }).then((next) => {
+          setMe(next);
+          invalidate("/app/");
+        }, () => {});
+    },
+  );
   const mobile = useMediaQuery(MOBILE_QUERY);
   const [drawer, setDrawer] = useState(false);
   const [mobilePanel, setMobilePanel] = useState(false);

@@ -44,7 +44,8 @@ app.use(
       scriptSrc: ["'self'", ...inlineScripts],
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:"],
-      connectSrc: ["'self'"],
+      // prefs.bayfield.dev: the preferences shared with the other apps.
+      connectSrc: ["'self'", "https://prefs.bayfield.dev"],
       frameAncestors: ["'none'"],
       formAction: ["'self'"],
       baseUri: ["'self'"],
