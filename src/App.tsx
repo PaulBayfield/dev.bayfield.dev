@@ -66,7 +66,7 @@ function Shell({ me, setMe, router, onSignedOut }: { me: Me; setMe: (me: Me) => 
   // Shared with the other bayfield.dev apps (prefs.bayfield.dev). The time zone lives on this
   // app's server (Settings → Profile): it's saved there, and the stats are worked out again.
   usePrefsSync(
-    { theme: settings.theme, language: settings.language, timeFormat: settings.timeFormat, durationStyle: settings.durationStyle, timeZone: me.timezone },
+    { theme: settings.theme, customThemes: settings.customThemes, customTheme: settings.customTheme, language: settings.language, timeFormat: settings.timeFormat, durationStyle: settings.durationStyle, timeZone: me.timezone },
     ({ timeZone, ...local }) => {
       if (Object.keys(local).length) update(local);
       if (timeZone)
